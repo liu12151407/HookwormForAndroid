@@ -29,6 +29,9 @@ get_bit() {
   if [ "$(getprop ro.build.version.sdk)" -ge "30" ]; then
     search_result="$(find /data/app -name "$1*")"
     package_dir="$(basename "$(dirname "$search_result")")/$(basename "$search_result")"
+    if [[ "$(dirname "$package_dir")" == "app" ]]; then
+      package_dir="$(basename "$package_dir")"
+    fi
   else
     package_dir="$(ls "/data/app" | grep "$1")"
   fi
@@ -68,6 +71,8 @@ process_32bit_libraries() {
       done
       ui_print "rm $file"
       rm "$file"
+      ui_print "rm $file.sha256sum"
+      rm "$file.sha256sum"
     fi
   done
 }
@@ -92,6 +97,8 @@ process_64bit_libraries() {
       done
       ui_print "rm $file"
       rm "$file"
+      ui_print "rm $file.sha256sum"
+      rm "$file.sha256sum"
     fi
   done
 }
@@ -122,26 +129,18 @@ else
   fi
 fi
 
-# Riru files
-ui_print "- Extracting extra files"
-[ -d "$RIRU_MODULE_PATH" ] || mkdir -p "$RIRU_MODULE_PATH" || abort "! Can't create $RIRU_MODULE_PATH"
-
 extract "$ZIPFILE" "extras.files" "$TMPDIR"
 
 cat "$TMPDIR/extras.files" >&1 | while read file; do
   extract "$ZIPFILE" "$file" "$MODPATH"
 done
 
-# set permission just in case
-set_perm "$RIRU_PATH" 0 0 0700
-set_perm "$RIRU_PATH/modules" 0 0 0700
-set_perm "$RIRU_MODULE_PATH" 0 0 0700
-set_perm "$RIRU_MODULE_PATH/bin" 0 0 0700
+set_perm_recursive "$MODPATH" 0 0 0755 0644
+
+# extract Riru files
+ui_print "- Extracting extra files"
+[ -d "$RIRU_MODULE_PATH" ] || mkdir -p "$RIRU_MODULE_PATH" || abort "! Can't create $RIRU_MODULE_PATH"
 
 rm -f "$RIRU_MODULE_PATH/module.prop.new"
 extract "$ZIPFILE" 'riru/module.prop.new' "$RIRU_MODULE_PATH" true
-set_perm "$RIRU_MODULE_PATH/module.prop.new" 0 0 0600
-
-# set permissions
-ui_print "- Setting permissions"
-set_perm_recursive "$MODPATH" 0 0 0755 0644
+set_perm "$RIRU_MODULE_PATH/module.prop.new" 0 0 0600 $RIRU_SECONTEXT
